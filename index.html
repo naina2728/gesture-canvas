@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gesture Canvas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Webcam Video (used for processing) -->
+    <video id="webcam" autoplay playsinline muted></video>
+
+    <!-- Main Drawing Canvas -->
+    <canvas id="drawingCanvas"></canvas>
+
+    <!-- Hand Tracking Overlay Canvas -->
+    <canvas id="handOverlay"></canvas>
+
+    <!-- Gesture Cursor -->
+    <div id="gestureCursor">
+        <div class="cursor-dot"></div>
+        <div class="cursor-ring"></div>
+    </div>
+
+    <!-- Gesture State Indicator -->
+    <div id="gestureIndicator">
+        <span id="gestureText">Waiting for hand...</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+        <div class="tool-section">
+            <h4>Tools</h4>
+            <div class="tool-buttons">
+                <button class="tool-btn active" data-tool="select" title="Select (tap)">
+                    <svg viewBox="0 0 24 24"><path d="M3 3l7.5 18 2.5-7 7-2.5L3 3z"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="freehand" title="Freehand">
+                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="rectangle" title="Rectangle">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="circle" title="Circle">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="line" title="Line">
+                    <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="arrow" title="Arrow">
+                    <svg viewBox="0 0 24 24"><path d="M4 20L20 4M20 4v8M20 4h-8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="tool-section">
+            <h4>Stroke Color</h4>
+            <div class="color-palette" id="strokeColors">
+                <button class="color-btn active" data-color="#1e1e1e" style="background:#1e1e1e"></button>
+                <button class="color-btn" data-color="#e03131" style="background:#e03131"></button>
+                <button class="color-btn" data-color="#2f9e44" style="background:#2f9e44"></button>
+                <button class="color-btn" data-color="#1971c2" style="background:#1971c2"></button>
+                <button class="color-btn" data-color="#f08c00" style="background:#f08c00"></button>
+                <button class="color-btn" data-color="#9c36b5" style="background:#9c36b5"></button>
+            </div>
+        </div>
+
+        <div class="tool-section">
+            <h4>Fill Color</h4>
+            <div class="color-palette" id="fillColors">
+                <button class="color-btn active" data-color="transparent" style="background:repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50%/8px 8px"></button>
+                <button class="color-btn" data-color="#ffe3e3" style="background:#ffe3e3"></button>
+                <button class="color-btn" data-color="#d3f9d8" style="background:#d3f9d8"></button>
+                <button class="color-btn" data-color="#d0ebff" style="background:#d0ebff"></button>
+                <button class="color-btn" data-color="#fff3bf" style="background:#fff3bf"></button>
+                <button class="color-btn" data-color="#f3d9fa" style="background:#f3d9fa"></button>
+            </div>
+        </div>
+
+        <div class="tool-section">
+            <h4>Stroke Width</h4>
+            <div class="stroke-buttons">
+                <button class="stroke-btn" data-width="2">
+                    <div class="stroke-preview" style="height:2px"></div>
+                </button>
+                <button class="stroke-btn active" data-width="4">
+                    <div class="stroke-preview" style="height:4px"></div>
+                </button>
+                <button class="stroke-btn" data-width="8">
+                    <div class="stroke-preview" style="height:8px"></div>
+                </button>
+            </div>
+        </div>
+
+        <div class="tool-section">
+            <h4>Actions</h4>
+            <div class="action-buttons">
+                <button id="undoBtn" class="action-btn" title="Undo">
+                    <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+                </button>
+                <button id="redoBtn" class="action-btn" title="Redo">
+                    <svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+                </button>
+                <button id="clearBtn" class="action-btn" title="Clear All">
+                    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
+                <button id="resetViewBtn" class="action-btn" title="Reset View">
+                    <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webcam Preview Toggle -->
+    <div id="webcamPreview">
+        <canvas id="webcamCanvas"></canvas>
+        <button id="toggleWebcam" title="Toggle Webcam Preview">
+            <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        </button>
+    </div>
+
+    <!-- Help Panel -->
+    <div id="helpPanel">
+        <button id="helpToggle">?</button>
+        <div id="helpContent">
+            <h3>Gesture Controls</h3>
+            <ul>
+                <li><strong>Point (index finger)</strong> - Draw / Create shapes</li>
+                <li><strong>Open palm</strong> - Pan canvas (smooth)</li>
+                <li><strong>Hover + Tap/Hold 3s</strong> - Select toolbar button</li>
+                <li><strong>Fist</strong> - Deselect / Stop</li>
+            </ul>
+            <p style="margin-top:10px;font-size:11px;color:#868e96;">Click toolbar to select tools & colors</p>
+        </div>
+    </div>
+
+    <!-- Zoom Indicator -->
+    <div id="zoomIndicator">100%</div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/elements.js"></script>
+    <script src="js/gestures.js"></script>
+    <script src="js/handTracking.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/tools.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

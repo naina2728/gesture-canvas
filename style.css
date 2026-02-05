@@ -1,0 +1,489 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f8f9fa;
+}
+
+/* Webcam video element - needs to be rendered but can be off-screen */
+#webcam {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0.01;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Main drawing canvas */
+#drawingCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    cursor: none;
+}
+
+/* Hand overlay canvas */
+#handOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* Gesture cursor */
+#gestureCursor {
+    position: fixed;
+    pointer-events: none;
+    z-index: 101;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+#gestureCursor.visible {
+    opacity: 1;
+}
+
+#gestureCursor .cursor-dot {
+    width: 12px;
+    height: 12px;
+    background: #1971c2;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 2px white;
+}
+
+#gestureCursor .cursor-ring {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #1971c2;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.5;
+    transition: transform 0.15s, opacity 0.15s;
+}
+
+#gestureCursor.pinching .cursor-ring {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 1;
+    background: rgba(25, 113, 194, 0.2);
+}
+
+#gestureCursor.panning .cursor-dot {
+    background: #2f9e44;
+}
+
+#gestureCursor.panning .cursor-ring {
+    border-color: #2f9e44;
+    transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* Gesture state indicator */
+#gestureIndicator {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 200;
+    transition: opacity 0.3s;
+}
+
+/* Toolbar */
+#toolbar {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    z-index: 150;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.tool-section {
+    margin-bottom: 16px;
+}
+
+.tool-section:last-child {
+    margin-bottom: 0;
+}
+
+.tool-section h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #868e96;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.tool-buttons,
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.tool-btn,
+.action-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: #f1f3f5;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.tool-btn svg,
+.action-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: #495057;
+}
+
+.tool-btn:hover,
+.action-btn:hover {
+    background: #e9ecef;
+}
+
+.tool-btn.active {
+    border-color: #1971c2;
+    background: #d0ebff;
+}
+
+.tool-btn.active svg {
+    fill: #1971c2;
+}
+
+/* Color palette */
+.color-palette {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.color-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+}
+
+.color-btn:hover {
+    transform: scale(1.1);
+}
+
+.color-btn.active {
+    border-color: #1971c2;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #1971c2;
+}
+
+/* Stroke width buttons */
+.stroke-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.stroke-btn {
+    flex: 1;
+    height: 32px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background: #f1f3f5;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.stroke-btn:hover {
+    background: #e9ecef;
+}
+
+.stroke-btn.active {
+    border-color: #1971c2;
+    background: #d0ebff;
+}
+
+.stroke-preview {
+    width: 20px;
+    background: #495057;
+    border-radius: 2px;
+}
+
+/* Webcam preview */
+#webcamPreview {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 150;
+}
+
+#webcamCanvas {
+    width: 200px;
+    height: 150px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    background: #1e1e1e;
+    transform: scaleX(-1);
+}
+
+#webcamPreview.hidden #webcamCanvas {
+    display: none;
+}
+
+#toggleWebcam {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#toggleWebcam svg {
+    width: 18px;
+    height: 18px;
+    fill: #495057;
+}
+
+#webcamPreview.hidden #toggleWebcam {
+    position: relative;
+    top: auto;
+    right: auto;
+}
+
+/* Help panel */
+#helpPanel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 150;
+}
+
+#helpToggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: white;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    color: #495057;
+}
+
+#helpContent {
+    display: none;
+    position: absolute;
+    top: 44px;
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    width: 280px;
+}
+
+#helpPanel.open #helpContent {
+    display: block;
+}
+
+#helpContent h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: #212529;
+}
+
+#helpContent ul {
+    list-style: none;
+}
+
+#helpContent li {
+    font-size: 13px;
+    color: #495057;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+#helpContent li strong {
+    color: #1971c2;
+}
+
+/* Zoom indicator */
+#zoomIndicator {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 150;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+#zoomIndicator.visible {
+    opacity: 1;
+}
+
+/* Selection handles */
+.selection-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: white;
+    border: 2px solid #1971c2;
+    border-radius: 2px;
+}
+
+/* Drawing preview */
+.drawing-preview {
+    pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #toolbar {
+        top: 10px;
+        left: 10px;
+        padding: 12px;
+    }
+
+    .tool-btn,
+    .action-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    #webcamCanvas {
+        width: 150px;
+        height: 112px;
+    }
+
+    #helpContent {
+        width: 240px;
+    }
+}
+
+/* Gesture hover feedback on toolbar buttons */
+.tool-btn.gesture-hover,
+.color-btn.gesture-hover,
+.stroke-btn.gesture-hover,
+.action-btn.gesture-hover {
+    outline: 3px solid #1971c2;
+    outline-offset: 2px;
+    background: #d0ebff;
+    transform: scale(1.1);
+    transition: all 0.15s ease;
+}
+
+.tool-btn.gesture-activated,
+.color-btn.gesture-activated,
+.stroke-btn.gesture-activated,
+.action-btn.gesture-activated {
+    outline: 3px solid #2f9e44;
+    outline-offset: 2px;
+    background: #d3f9d8;
+    transform: scale(0.95);
+    transition: all 0.1s ease;
+}
+
+/* Dwell progress - pulsing glow that builds up during 3s hold */
+.tool-btn.gesture-dwell,
+.color-btn.gesture-dwell,
+.stroke-btn.gesture-dwell,
+.action-btn.gesture-dwell {
+    outline: 3px solid #f08c00;
+    outline-offset: 2px;
+    background: #fff3bf;
+    transform: scale(1.15);
+    animation: dwell-pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes dwell-pulse {
+    from {
+        outline-color: #f08c00;
+        box-shadow: 0 0 8px rgba(240, 140, 0, 0.4);
+    }
+    to {
+        outline-color: #e03131;
+        box-shadow: 0 0 16px rgba(224, 49, 49, 0.6);
+    }
+}
+
+/* Loading state */
+body.loading::before {
+    content: 'Initializing camera...';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px 40px;
+    border-radius: 12px;
+    font-size: 16px;
+    z-index: 1000;
+}
+
+/* Error state */
+body.error::before {
+    content: 'Camera access denied. Please allow camera access and refresh.';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #e03131;
+    color: white;
+    padding: 20px 40px;
+    border-radius: 12px;
+    font-size: 16px;
+    z-index: 1000;
+    max-width: 400px;
+    text-align: center;
+}
